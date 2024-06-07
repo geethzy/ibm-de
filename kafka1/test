@@ -1,0 +1,90 @@
+wget https://archive.apache.org/dist/kafka/2.8.0/kafka_2.12-2.8.0.tgz
+tar -xzf kafka_2.12-2.8.0.tgz
+
+#start zookeeper server terminal
+cd kafka_2.12-2.8.0
+bin/zookeeper-server-start.sh config/zookeeper.properties
+#2181
+
+#start apache spark server termianl
+cd kafka_2.12-2.8.0
+bin/kafka-server-start.sh config/server.properties
+#9092
+
+#producer terminal
+cd kafka_2.12-2.8.0
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic bankbranch  --partitions 2
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic bankbranch
+
+bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic bankbranch #create aproducer in the same terminal
+>{"atmid": 1, "transid": 102}
+>{"atmid": 1, "transid": 103}
+>{"atmid": 2, "transid": 202}
+>{"atmid": 2, "transid": 203}
+>{"atmid": 1, "transid": 104}
+
+#consumer terminal
+cd kafka_2.12-2.8.0
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic bankbranch --from-beginning
+
+#messages are not consumed in the same order as they were published
+# messages were published to the two partitions in rotation
+# Partition 0: [{"atmid": 1, "transid": 102}, {"atmid": 2, "transid": 202}, {"atmid": 1, "transid": 104}]
+# Partition 1: [{"atmid": 1, "transid": 103}, {"atmid": 2, "transid": 203}]
+
+#-------PRODUCE & CONSUME WITH MESSAGE KEYS------
+bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic bankbranch --property parse.key=true --property key.separator=:
+>1:{"atmid": 1, "transid": 102}
+>1:{"atmid": 1, "transid": 103}
+>2:{"atmid": 2, "transid": 202}
+>2:{"atmid": 2, "transid": 203}
+>1:{"atmid": 1, "transid": 104}
+
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic bankbranch --from-beginning --property print.key=true --property key.separator=:
+
+# messages that have the same key are being consumed in the same order 
+# (e.g., trans102 -> trans103 -> trans104) as they were published.
+# This is because each topic partition maintains its own message queue, and new messages are enqueued 
+# Partition 0: [{"atmid": 1, "transid": 102}, {"atmid": 1, "transid": 103}, {"atmid": 1, "transid": 104}]
+# Partition 1: [{"atmid": 2, "transid": 202}, {"atmid": 2, "transid": 203}]
+# Messages with the same key will always be published to the same partition, so that their published order will be preserved within the message queue of each partition.
+
+#-------CONSUMER OFFSET------
+# Message offset indicates a message’s position in the sequence. For example,
+# the offset of an empty Partition 0 of bankbranch is 0, and if you publish the first message
+# to the partition, its offset will be 1.
+
+#consumer group: related consumers together as a consumer group.
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic bankbranch --group atm-app
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group atm-app
+# CURRENT-OFFSET column of partition 1 is 6
+# and CURRENT-OFFSET of partition 0 is 4, and they add up to 10 messages.
+
+# The LOG-END-OFFSETcolumn indicates the last offset or the end of the sequence, which is 6 for partition 1 and 4 for
+# partition 0. Thus, both partitions have reached the end of their queues and no more messages are available for consumption.
+
+# the LAG column which represents the count of unconsumed messages for each partition.
+
+#producer terminal
+>1:{"atmid": 1, "transid": 105}
+>2:{"atmid": 2, "transid": 204}
+
+#consumer terminal
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group atm-app
+# now have 1 new message for each partition to be consumed.
+
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic bankbranch --group atm-app
+# now both partitions have reached the end once again
+
+#-------RESET OFFSET------
+# Reset offset: if you want to consume the messages again from the beginning
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092  --topic bankbranch --group atm-app --reset-offsets --to-earliest --execute
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic bankbranch --group atm-app
+# all 12 messages are consumed and that all offsets have reached the partition ends again.
+
+# Shift the offset to left by 2
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092  --topic bankbranch --group atm-app --reset-offsets --shift-by -2 --execute
+
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic bankbranch --group atm-app
+# consumed 4 messages, 2 for each partition:

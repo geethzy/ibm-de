@@ -1,0 +1,16 @@
+create database tolldata;
+use tolldata;
+
+create table livetolldata(timestamp datetime,vehicle_id int,vehicle_type char(15),toll_plaza_id smallint);
+exit
+
+python3 -m pip install kafka-python
+
+cd kafka_2.12-2.8.0
+bin/zookeeper-server-start.sh config/zookeeper.properties
+
+cd kafka_2.12-2.8.0
+bin/kafka-server-start.sh config/server.properties
+
+# ODU2NC1nZWV0aGN5
+
