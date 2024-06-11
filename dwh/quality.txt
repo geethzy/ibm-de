@@ -1,0 +1,114 @@
+
+start_postgres
+
+#Run the command below to execute the staging area setup script.
+bash setup_staging_area.sh
+
+-----------------thisis the .sh script
+echo "Creating the database"
+
+createdb -h localhost -U postgres -p 5432 billingDW
+
+echo "Downloading the data files"
+wget https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBM-DB0260EN-SkillsNetwork/labs/Setting%20up%20a%20staging%20area/billing-datawarehouse.tgz
+
+echo "Extracting files"
+tar -xvzf billing-datawarehouse.tgz
+
+echo "Creating schema"
+
+psql  -h localhost -U postgres -p 5432 billingDW < star-schema.sql
+
+echo "Loading data"
+
+psql  -h localhost -U postgres -p 5432 billingDW < DimCustomer.sql
+
+psql  -h localhost -U postgres -p 5432 billingDW < DimMonth.sql
+
+psql  -h localhost -U postgres -p 5432 billingDW < FactBilling.sql
+
+echo "Finished loading data"
+
+echo "Verifying data"
+
+psql  -h localhost -U postgres -p 5432 billingDW < verify.sql
+
+echo "Successfully setup the staging area"
+-------------------------------------
+
+#Getting the testing framework ready
+You can perform most of the data quality checks by manually running sql queries on the data warehouse.
+It is a good idea to automate these checks using custom programs or tools. Automation helps you to easily
+create new tests,
+run tests,
+and schedule tests.
+
+Run the commands below to download the framework
+wget https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBM-DB0260EN-SkillsNetwork/labs/Verifying%20Data%20Quality%20for%20a%20Data%20Warehouse/dataqualitychecks.py
+wget https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBM-DB0260EN-SkillsNetwork/labs/Verifying%20Data%20Quality%20for%20a%20Data%20Warehouse/dbconnect.py
+wget https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBM-DB0260EN-SkillsNetwork/labs/Verifying%20Data%20Quality%20for%20a%20Data%20Warehouse/mytests.py
+wget https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBM-DB0260EN-SkillsNetwork/labs/Verifying%20Data%20Quality%20for%20a%20Data%20Warehouse/generate-data-quality-report.py
+ls
+
+Install the python driver for Postgresql.
+python3 -m pip install psycopg2
+
+python3 dbconnect.py
+
+
+#check for nulls
+test1={
+    "testname":"Check for nulls",
+    "test":check_for_nulls,
+    "column": "monthid",
+    "table": "DimMonth"
+}
+
+test5={
+    "testname":"Check for nulls",
+    "test":check_for_nulls,
+    "column": "year",
+    "table": "DimMonth"
+}
+#run the python script
+
+#check_for_min_max
+test2={
+    "testname":"Check for min and max",
+    "test":check_for_min_max,
+    "column": "monthid",
+    "table": "DimMonth",
+    "minimum":1,
+    "maximum":12
+}
+#run the python script
+
+#check_for_valid_values
+test3={
+    "testname":"Check for valid values",
+    "test":check_for_valid_values,
+    "column": "category",
+    "table": "DimCustomer",
+    "valid_values":{'Individual','Company'}
+}
+
+#check_for_duplicates
+test4={
+    "testname":"Check for duplicates",
+    "test":check_for_duplicates,
+    "column": "monthid",
+    "table": "DimMonth"
+}
+#run the python script
+
+The testing framework provides the following tests:
+check_for_nulls - this test will check for nulls in a column
+check_for_min_max - this test will check if the values in a column are with a range of min and max values
+check_for_valid_values - this test will check for any invalid values in a column
+check_for_duplicates - this test will check for duplicates in a column
+
+Each test can be authored by mentioning a minimum of 4 parameters.
+testname - The human readable name of the test for reporting purposes
+test - The actual test name that the testing micro framework provides
+table - The table name on which the test is to be performed
+column - The table name on which the test is to be performed

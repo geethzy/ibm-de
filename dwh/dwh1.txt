@@ -1,0 +1,55 @@
+start_postgres
+
+createdb -h localhost -U postgres -p 5432 billingDW
+-h mentions that the database server is running on the localhost
+-U mentions that we are using the user name postgres to log into the database
+-p mentions that the database server is running on port number 5432
+
+#####create schema
+BEGIN;
+
+
+CREATE TABLE public."FactBilling"
+(
+    rowid integer NOT NULL,
+    customerid integer NOT NULL,
+    monthid integer NOT NULL,
+    billedamount integer NOT NULL,
+    PRIMARY KEY (rowid)
+);
+
+CREATE TABLE public."DimMonth"
+(
+    monthid integer NOT NULL,
+    year integer NOT NULL,
+    month integer NOT NULL,
+    monthname "char" NOT NULL,
+    quarter integer NOT NULL,
+    quartername "char" NOT NULL,
+    PRIMARY KEY (monthid)
+);
+
+CREATE TABLE public."DimCustomer"
+(
+    customerid integer NOT NULL,
+    category "char" NOT NULL,
+    country "char" NOT NULL,
+    industry "char" NOT NULL,
+    PRIMARY KEY (customerid)
+);
+
+ALTER TABLE public."FactBilling"
+    ADD FOREIGN KEY (customerid)
+    REFERENCES public."DimCustomer" (customerid)
+    NOT VALID;
+
+
+ALTER TABLE public."FactBilling"
+    ADD FOREIGN KEY (monthid)
+    REFERENCES public."DimMonth" (monthid)
+    NOT VALID;
+
+END;
+
+#create the schema in the under billingDW database.
+psql  -h localhost -U postgres -p 5432 billingDW < star-schema.sql
